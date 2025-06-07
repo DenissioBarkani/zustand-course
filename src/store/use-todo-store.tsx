@@ -1,5 +1,6 @@
 import { create, type StateCreator } from 'zustand';
 import { createJSONStorage, devtools, persist } from 'zustand/middleware';
+import { immer } from 'zustand/middleware/immer';
 
 interface Itodo {
     id: number;
@@ -27,8 +28,8 @@ const initialState: iInitialState = {
 
 const todoStore: StateCreator<
     ITodoState,
-    [['zustand/devtools', never], ['zustand/persist', unknown]]
-> = (set, get) => ({
+    [['zustand/immer', never], ['zustand/devtools', never], ['zustand/persist', unknown]]
+> = (set) => ({
     ...initialState,
     fetchTodos: async () => {
         set({ isLoading: true }, false, 'fetchTodos');
@@ -45,20 +46,28 @@ const todoStore: StateCreator<
     },
     completeTodo: (id: number) => {
         set(
-            (state) => ({
-                todos: state.todos.map((todo) =>
-                    todo.id === id ? { ...todo, completed: !todo.completed } : todo,
-                ),
-            }),
+            (state) => {
+                // todos: state.todos.map((todo) =>
+                //     todo.id === id ? { ...todo, completed: !todo.completed } : todo,
+                // ),
+                const todo = state.todos.find((todo: Itodo) => todo.id === id);
+                if (todo) {
+                    todo.complited = !todo.completed;
+                }
+            },
             false,
             'completeTodo',
         );
     },
     deleteTodo: (id: number) => {
         set(
-            () => {
-                const todos = get().todos;
-                return { todos: todos.filter((todo) => todo.id !== id) };
+            (state) => {
+                const index = state.todos.findIndex((todo: Itodo) => todo.id === id);
+                if (index !== -1) {
+                    state.todos.splice(index, 1);
+                }
+                // const todos = get().todos;
+                // return { todos: todos.filter((todo) => todo.id !== id) };
             },
             false,
             'deleteTodo',
@@ -68,12 +77,14 @@ const todoStore: StateCreator<
     // decrement: () => set((state) => ({ count: state.count - 1 }), false, 'decrement'),
 });
 const useTodoStore = create<ITodoState>()(
-    devtools(
-        persist(todoStore, {
-            name: 'todo-storage',
-            storage: createJSONStorage(() => localStorage),
-            partialize: (state) => ({ todos: state.todos }),
-        }),
+    immer(
+        devtools(
+            persist(todoStore, {
+                name: 'todo-storage',
+                storage: createJSONStorage(() => localStorage),
+                partialize: (state) => ({ todos: state.todos }),
+            }),
+        ),
     ),
 );
 
